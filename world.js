@@ -1,6 +1,5 @@
 // world.js  –  Grow-a-Garden
-// Three.js world: terrain, shacks with floating name labels, 1st/3rd person,
-// RMB look (cursor stays visible & frozen), scroll zoom, spherical 3rd-person camera.
+// Three.js world with configurable quality settings for low/mid/high end devices.
 
 window.World = (() => {
 
@@ -26,18 +25,95 @@ window.World = (() => {
 
   const keys = {};
   let rmb = false;
-
   let frozenX = 0, frozenY = 0;
-
   let nearShack = null;
   const INTERACT_DIST = 5.5;
   const HARVEST_DIST  = 3.8;
-
   let playerGroup  = null;
   let viewModel    = null;
-
   let bodyYaw = 0;
   let _proxAccum = 0;
+
+  // ── QUALITY PRESETS ───────────────────────────────────────
+  const QUALITY = {
+    low: {
+      fps:        10,
+      pixelRatio: 0.75,
+      fog:        false,
+      trees:      [[-26,-26],[26,26]],
+      flowers:    4,
+      clouds:     4,
+      fenceStep:  24,
+    },
+    medium: {
+      fps:        30,
+      pixelRatio: 1.0,
+      fog:        true,
+      trees:      [[-26,-26],[26,-26],[-26,26],[26,26]],
+      flowers:    8,
+      clouds:     8,
+      fenceStep:  16,
+    },
+    high: {
+      fps:        60,
+      pixelRatio: 1.5,
+      fog:        true,
+      trees:      [[-26,-26],[26,-26],[-26,26],[26,26],[-26,0],[26,0]],
+      flowers:    16,
+      clouds:     14,
+      fenceStep:  8,
+    },
+  };
+
+  // Default to medium until player picks
+  let Q = QUALITY.medium;
+
+  // ── QUALITY PICKER ────────────────────────────────────────
+  // Shows a simple overlay before the game starts so player can pick quality.
+  function showQualityPicker(onPick) {
+    const overlay = document.createElement('div');
+    overlay.id = 'qualityPicker';
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(10,5,0,0.97);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      z-index:9999;font-family:'Press Start 2P',monospace;
+    `;
+    overlay.innerHTML = `
+      <div style="font-size:13px;color:#ffd700;margin-bottom:8px;letter-spacing:2px">🌱 GROW-A-GARDEN</div>
+      <div style="font-size:9px;color:#8d6e63;margin-bottom:32px;letter-spacing:1px">SELECT GRAPHICS QUALITY</div>
+      <div style="display:flex;flex-direction:column;gap:14px;width:280px;">
+        <button id="qLow" style="
+          background:rgba(244,67,54,0.15);border:2px solid #f44336;color:#ef9a9a;
+          padding:14px 20px;font-family:inherit;font-size:9px;cursor:pointer;
+          border-radius:3px;letter-spacing:1px;text-align:left;line-height:2;
+        ">🐢 LOW QUALITY<br><span style="font-size:7px;color:#8d6e63">10fps · Minimal scene · Old/slow devices</span></button>
+        <button id="qMed" style="
+          background:rgba(255,152,0,0.15);border:2px solid #ff9800;color:#ffcc80;
+          padding:14px 20px;font-family:inherit;font-size:9px;cursor:pointer;
+          border-radius:3px;letter-spacing:1px;text-align:left;line-height:2;
+        ">🌿 MEDIUM QUALITY<br><span style="font-size:7px;color:#8d6e63">30fps · Balanced · Most devices</span></button>
+        <button id="qHigh" style="
+          background:rgba(76,175,80,0.15);border:2px solid #4caf50;color:#a5d6a7;
+          padding:14px 20px;font-family:inherit;font-size:9px;cursor:pointer;
+          border-radius:3px;letter-spacing:1px;text-align:left;line-height:2;
+        ">🚀 HIGH QUALITY<br><span style="font-size:7px;color:#8d6e63">60fps · Full detail · Gaming PC / Mac</span></button>
+      </div>
+      <div style="font-size:7px;color:#5d4037;margin-top:24px;">You can change this by refreshing the page</div>
+    `;
+    document.body.appendChild(overlay);
+
+    const pick = (level) => {
+      Q = QUALITY[level];
+      localStorage.setItem('gag_quality', level);
+      overlay.style.transition = 'opacity 0.3s';
+      overlay.style.opacity = '0';
+      setTimeout(() => { overlay.remove(); onPick(); }, 300);
+    };
+
+    document.getElementById('qLow').onclick  = () => pick('low');
+    document.getElementById('qMed').onclick  = () => pick('medium');
+    document.getElementById('qHigh').onclick = () => pick('high');
+  }
 
   const SHACK_DEFS = [
     { id:'sell',     name:'Sell Shop',        hexColor:0xffd700, x:-18, npc:'sell',
@@ -52,18 +128,30 @@ window.World = (() => {
       npcQuote:'"Feed your pet to the machine... stronger!"', shirtColor:0x4a148c },
   ];
 
+  // ── INIT ──────────────────────────────────────────────────
   function init() {
+    // Check for saved quality preference, otherwise show picker
+    const saved = localStorage.getItem('gag_quality');
+    if (saved && QUALITY[saved]) {
+      Q = QUALITY[saved];
+      buildWorld();
+    } else {
+      showQualityPicker(buildWorld);
+    }
+  }
+
+  function buildWorld() {
     const canvas = document.getElementById('gameCanvas');
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
-    scene.fog        = new THREE.FogExp2(0x8ec8f0, 0.010);
+    if (Q.fog) scene.fog = new THREE.FogExp2(0x8ec8f0, 0.010);
 
     camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 200);
 
     renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference:'high-performance' });
     renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.0)); // cap at 1x on Chromebook
+    renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pixelRatio));
     renderer.shadowMap.enabled = false;
 
     clock = new THREE.Clock();
@@ -88,8 +176,7 @@ window.World = (() => {
         const [name, fn] = steps[i++];
         const t0 = performance.now();
         fn();
-        const ms = (performance.now() - t0).toFixed(1);
-        console.log(`[World] ${name}: ${ms}ms`);
+        console.log(`[World] ${name}: ${(performance.now()-t0).toFixed(1)}ms`);
         setTimeout(runNext, 0);
       } else {
         console.log('[World] init complete');
@@ -103,7 +190,7 @@ window.World = (() => {
   function buildTerrain() {
     const gGeo = new THREE.PlaneGeometry(WORLD*2, WORLD*2, 40, 40);
     const gp   = gGeo.attributes.position;
-    for (let i = 0; i < 8; i++) { // was 16
+    for (let i = 0; i < gp.count; i++) {
       const x = gp.getX(i), z = gp.getY(i);
       const dist = Math.sqrt(x*x + z*z) / WORLD;
       gp.setZ(i, (Math.random()-0.5)*0.06 + dist*0.35);
@@ -150,19 +237,9 @@ window.World = (() => {
   function buildLighting() {
     scene.add(new THREE.AmbientLight(0xfff0d0, 0.55));
     scene.add(new THREE.HemisphereLight(0x87ceeb, 0x556b2f, 0.38));
-
     const sun = new THREE.DirectionalLight(0xfff5e0, 1.15);
     sun.position.set(30, 60, 25);
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left   = -55;
-    sun.shadow.camera.right  =  55;
-    sun.shadow.camera.top    =  55;
-    sun.shadow.camera.bottom = -55;
-    sun.shadow.camera.near   = 0.5;
-    sun.shadow.camera.far    = 150;
-    sun.shadow.bias          = -0.0003;
     scene.add(sun);
-
     const fill = new THREE.DirectionalLight(0xd0e8ff, 0.22);
     fill.position.set(-30,15,-20);
     scene.add(fill);
@@ -299,8 +376,7 @@ window.World = (() => {
   const _LEAF_MATS = [_MAT.leaf0, _MAT.leaf1, _MAT.leaf2];
 
   function buildTrees() {
-    [[-26,-26],[26,-26],[-26,26],[26,26],[-26,0],[26,0]]
-    .forEach(([x,z]) => {
+    Q.trees.forEach(([x,z]) => {
       const h = 3.5 + Math.random()*1.5;
       const trk = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, h, 6), _MAT.trunk);
       trk.position.set(x, h/2, z);
@@ -322,11 +398,12 @@ window.World = (() => {
     const petalGeo  = new THREE.SphereGeometry(0.12, 5, 4);
     const centreGeo = new THREE.SphereGeometry(0.055, 4, 3);
 
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < Q.flowers; i++) {
       let fx, fz;
       do { fx=(Math.random()-0.5)*WORLD*1.6; fz=(Math.random()-0.5)*WORLD*1.6; }
       while (Math.abs(fx)<20 && Math.abs(fz-2)<14);
 
+      scene.add(Object.assign(new THREE.Mesh(stemGeo, _MAT.stem), { position: { x:fx, y:0.17, z:fz } }));
       const stem = new THREE.Mesh(stemGeo, _MAT.stem);
       stem.position.set(fx, 0.17, fz);
       scene.add(stem);
@@ -343,7 +420,7 @@ window.World = (() => {
 
   const clouds = [];
   function buildClouds() {
-    for (let i=0;i<6;i++) {
+    for (let i=0; i<Q.clouds; i++) {
       const g = new THREE.Group();
       const n = 3+Math.floor(Math.random()*4);
       for (let p=0;p<n;p++) {
@@ -375,7 +452,7 @@ window.World = (() => {
     });
 
     const postGeo = new THREE.BoxGeometry(0.22, 1.0, 0.22);
-    for (let i = -WORLD; i <= WORLD; i += 16) { // was i += 8
+    for (let i = -WORLD; i <= WORLD; i += Q.fenceStep) {
       [[i,-half],[i,half],[-half,i],[half,i]].forEach(([x,z]) => {
         const post = new THREE.Mesh(postGeo, pMat);
         post.position.set(x, 0.5, z);
@@ -386,7 +463,6 @@ window.World = (() => {
 
   function buildPlayerBody() {
     playerGroup = new THREE.Group();
-
     const sk  = c => new THREE.MeshLambertMaterial({ color:c });
     const mkB = (w,h,d,col,px,py,pz) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), sk(col));
@@ -394,7 +470,6 @@ window.World = (() => {
       playerGroup.add(m);
       return m;
     };
-
     mkB(0.6, 0.75,0.35, 0x1565c0,  0,1.22,0);
     mkB(0.52,0.52,0.52, 0xffcc9a,  0,1.82,0);
     mkB(0.54,0.18,0.54, 0x4e342e,  0,2.08,0);
@@ -488,14 +563,10 @@ window.World = (() => {
       const mesh = buildItemMesh(item);
       if (mesh) _vmSlot.add(mesh);
     }
-
     if (_bodySlot) {
       while (_bodySlot.children.length) _bodySlot.remove(_bodySlot.children[0]);
       const mesh = buildItemMesh(item);
-      if (mesh) {
-        mesh.scale.setScalar(1.4);
-        _bodySlot.add(mesh);
-      }
+      if (mesh) { mesh.scale.setScalar(1.4); _bodySlot.add(mesh); }
     }
   }
 
@@ -523,30 +594,22 @@ window.World = (() => {
     window.addEventListener('keyup', e => { keys[e.code]=false; });
 
     canvas.addEventListener('mousedown', e => {
-      if (e.button === 2) {
-        rmb     = true;
-        frozenX = e.clientX;
-        frozenY = e.clientY;
-      }
+      if (e.button === 2) { rmb=true; frozenX=e.clientX; frozenY=e.clientY; }
     });
-
     window.addEventListener('mouseup', e => {
-      if (e.button === 2) { rmb = false; }
+      if (e.button === 2) rmb = false;
     });
-
     window.addEventListener('mousemove', e => {
       if (!rmb) return;
       const dx = e.clientX - frozenX;
       const dy = e.clientY - frozenY;
-      frozenX  = e.clientX;
-      frozenY  = e.clientY;
+      frozenX = e.clientX; frozenY = e.clientY;
       camYaw   -= dx * 0.0032;
       camPitch -= dy * 0.0032;
-      camPitch  = Math.max(-Math.PI * 0.42, Math.min(Math.PI * 0.42, camPitch));
+      camPitch  = Math.max(-Math.PI*0.42, Math.min(Math.PI*0.42, camPitch));
     });
 
     canvas.addEventListener('contextmenu', e => e.preventDefault());
-
     canvas.addEventListener('wheel', e => {
       if (window._anyModalOpen?.()) return;
       e.preventDefault();
@@ -556,12 +619,11 @@ window.World = (() => {
   }
 
   // ── ANIMATION LOOP ────────────────────────────────────────
-  // Capped at 30fps on Chromebook to prevent GPU freeze
-  const TARGET_MS = 1000 / 20; // 20fps target
   let _npcT = 0;
   let _lastFrame = 0;
   function animate(now = 0) {
     requestAnimationFrame(animate);
+    const TARGET_MS = 1000 / Q.fps;
     if (now - _lastFrame < TARGET_MS) return;
     _lastFrame = now;
 
@@ -584,9 +646,7 @@ window.World = (() => {
 
     _npcT += dt;
     SHACK_DEFS.forEach((def,i) => {
-      if (def.npcHead) {
-        def.npcHead.position.y = 2.67 + Math.sin(_npcT*1.1+i*0.9)*0.055;
-      }
+      if (def.npcHead) def.npcHead.position.y = 2.67 + Math.sin(_npcT*1.1+i*0.9)*0.055;
     });
 
     clouds.forEach(c => {
@@ -605,22 +665,22 @@ window.World = (() => {
   const _tCam = new THREE.Vector3();
   const _look = new THREE.Vector3();
   let _walkT = 0;
+
   function updateMovement(dt) {
     const isFirstPerson = zoomDist < 0.5;
 
     _fwd.set(-Math.sin(camYaw), 0, -Math.cos(camYaw));
     _rgt.set( Math.cos(camYaw), 0, -Math.sin(camYaw));
     _move.set(0, 0, 0);
-    const fwd = _fwd, rgt = _rgt, move = _move;
 
-    if (keys['KeyW']) move.addScaledVector(fwd, 1);
-    if (keys['KeyS']) move.addScaledVector(fwd,-1);
-    if (keys['KeyA']) move.addScaledVector(rgt,-1);
-    if (keys['KeyD']) move.addScaledVector(rgt, 1);
-    const isMoving = move.lengthSq() > 0;
-    if (isMoving) move.normalize().multiplyScalar(MOVE_SPD * dt);
+    if (keys['KeyW']) _move.addScaledVector(_fwd, 1);
+    if (keys['KeyS']) _move.addScaledVector(_fwd,-1);
+    if (keys['KeyA']) _move.addScaledVector(_rgt,-1);
+    if (keys['KeyD']) _move.addScaledVector(_rgt, 1);
+    const isMoving = _move.lengthSq() > 0;
+    if (isMoving) _move.normalize().multiplyScalar(MOVE_SPD * dt);
 
-    playerPos.add(move);
+    playerPos.add(_move);
 
     velY += GRAVITY * dt;
     playerPos.y += velY * dt;
@@ -633,7 +693,7 @@ window.World = (() => {
     if (isMoving && grounded) _walkT += dt * 8;
 
     if (!isFirstPerson && isMoving) {
-      const moveYaw = Math.atan2(move.x, move.z);
+      const moveYaw = Math.atan2(_move.x, _move.z);
       let diff = moveYaw - bodyYaw;
       while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
@@ -652,11 +712,11 @@ window.World = (() => {
       camera.rotation.y = camYaw;
       camera.rotation.x = camPitch;
     } else {
-      const pitch = Math.max(-Math.PI * 0.35, Math.min(Math.PI * 0.45, camPitch));
-      const p      = -pitch;
-      const offsetX =  Math.sin(camYaw) * Math.cos(p) * zoomDist;
-      const offsetY =  Math.sin(p)                    * zoomDist + EYE_H;
-      const offsetZ =  Math.cos(camYaw) * Math.cos(p) * zoomDist;
+      const pitch = Math.max(-Math.PI*0.35, Math.min(Math.PI*0.45, camPitch));
+      const p = -pitch;
+      const offsetX = Math.sin(camYaw) * Math.cos(p) * zoomDist;
+      const offsetY = Math.sin(p) * zoomDist + EYE_H;
+      const offsetZ = Math.cos(camYaw) * Math.cos(p) * zoomDist;
 
       _tCam.set(playerPos.x + offsetX, playerPos.y + offsetY, playerPos.z + offsetZ);
       camera.position.lerp(_tCam, Math.min(dt * 18, 1));
