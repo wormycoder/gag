@@ -8,29 +8,10 @@ const API_KEY = 'AIzaSyDL4KerKsx1UZfA--gV2YLY92ptVyFg25I';
 const PROXY   = 'https://restless-leaf-ef07.elithiessen5.workers.dev';
 
 // ── AUTH TOKEN ────────────────────────────────────────────────────────────────
-let _authToken = null;
-
+// Anonymous auth is disabled in this Firebase project, so we skip it entirely
+// and rely on open database rules for read/write access.
 async function getAuthToken() {
-  if (_authToken) return _authToken;
-  try {
-    const authUrl = `${PROXY}?url=${encodeURIComponent(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`
-    )}`;
-    const r = await fetch(authUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ returnSecureToken: true })
-    });
-    const d = await r.json();
-    if (d.idToken) {
-      _authToken = d.idToken;
-      // Refresh before it expires (Firebase tokens last 1 hour)
-      setTimeout(() => { _authToken = null; }, 55 * 60 * 1000);
-    }
-  } catch(e) {
-    console.warn('[DB] Auth token fetch failed, trying unauthenticated', e);
-  }
-  return _authToken;
+  return null;
 }
 
 // ── REST HELPERS ──────────────────────────────────────────────────────────────
@@ -41,9 +22,7 @@ function pathToUrl(path) {
 }
 
 async function restGet(path) {
-  const token = await getAuthToken();
-  let url = pathToUrl(path);
-  if (token) url += `&auth=${encodeURIComponent(token)}`;
+  const url = pathToUrl(path);
   const r = await fetch(url);
   if (!r.ok) throw new Error(`DB get failed: ${r.status}`);
   const val = await r.json();
@@ -51,9 +30,7 @@ async function restGet(path) {
 }
 
 async function restSet(path, value) {
-  const token = await getAuthToken();
-  let url = pathToUrl(path);
-  if (token) url += `&auth=${encodeURIComponent(token)}`;
+  const url = pathToUrl(path);
   const r = await fetch(url, {
     method:  'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -64,9 +41,7 @@ async function restSet(path, value) {
 }
 
 async function restUpdate(path, value) {
-  const token = await getAuthToken();
-  let url = pathToUrl(path);
-  if (token) url += `&auth=${encodeURIComponent(token)}`;
+  const url = pathToUrl(path);
   const r = await fetch(url, {
     method:  'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -77,9 +52,7 @@ async function restUpdate(path, value) {
 }
 
 async function restPush(path, value) {
-  const token = await getAuthToken();
-  let url = pathToUrl(path);
-  if (token) url += `&auth=${encodeURIComponent(token)}`;
+  const url = pathToUrl(path);
   const r = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -91,9 +64,7 @@ async function restPush(path, value) {
 }
 
 async function restRemove(path) {
-  const token = await getAuthToken();
-  let url = pathToUrl(path);
-  if (token) url += `&auth=${encodeURIComponent(token)}`;
+  const url = pathToUrl(path);
   const r = await fetch(url, { method: 'DELETE' });
   if (!r.ok) throw new Error(`DB remove failed: ${r.status}`);
 }
@@ -171,9 +142,6 @@ window.DB = {
 
 window.GAG_ROOT = 'gag';
 window.gRef = (path) => makeRef('gag/' + path);
-
-// Pre-fetch auth token silently on load
-getAuthToken().catch(() => {});
 
 console.log('[DB] REST API mode via Cloudflare Worker proxy — CSP-safe');
 
