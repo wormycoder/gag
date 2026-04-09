@@ -103,7 +103,7 @@ window.World = (() => {
   function buildTerrain() {
     const gGeo = new THREE.PlaneGeometry(WORLD*2, WORLD*2, 40, 40);
     const gp   = gGeo.attributes.position;
-    for (let i = 0; i < gp.count; i++) {
+    for (let i = 0; i < 8; i++) { // was 16
       const x = gp.getX(i), z = gp.getY(i);
       const dist = Math.sqrt(x*x + z*z) / WORLD;
       gp.setZ(i, (Math.random()-0.5)*0.06 + dist*0.35);
@@ -343,7 +343,7 @@ window.World = (() => {
 
   const clouds = [];
   function buildClouds() {
-    for (let i=0;i<14;i++) {
+    for (let i=0;i<6;i++) {
       const g = new THREE.Group();
       const n = 3+Math.floor(Math.random()*4);
       for (let p=0;p<n;p++) {
@@ -375,7 +375,7 @@ window.World = (() => {
     });
 
     const postGeo = new THREE.BoxGeometry(0.22, 1.0, 0.22);
-    for (let i = -WORLD; i <= WORLD; i += 8) {
+    for (let i = -WORLD; i <= WORLD; i += 16) { // was i += 8
       [[i,-half],[i,half],[-half,i],[half,i]].forEach(([x,z]) => {
         const post = new THREE.Mesh(postGeo, pMat);
         post.position.set(x, 0.5, z);
@@ -557,7 +557,7 @@ window.World = (() => {
 
   // ── ANIMATION LOOP ────────────────────────────────────────
   // Capped at 30fps on Chromebook to prevent GPU freeze
-  const TARGET_MS = 1000 / 30; // 30fps target
+  const TARGET_MS = 1000 / 20; // 20fps target
   let _npcT = 0;
   let _lastFrame = 0;
   function animate(now = 0) {
