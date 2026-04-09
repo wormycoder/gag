@@ -6,21 +6,16 @@ window.World = (() => {
 
   let scene, camera, renderer, clock;
 
-  // Player body position (separate from camera in 3rd person)
   const playerPos = new THREE.Vector3(0, 0, 18);
   let camYaw   = 0;
   let camPitch = 0;
   let velY     = 0;
   let grounded = true;
 
-  // ── ZOOM / PERSPECTIVE ────────────────────────────────────
-  // zoomDist: 0 = first person, >0 = third person distance behind player
-  const ZOOM_MIN  = 0;    // first person
-  const ZOOM_MAX  = 9;    // max pull-back
-  const ZOOM_STEP = 1.2;  // per scroll tick
-  let   zoomDist  = 5;    // start in third person
-
-  // Smooth zoom lerp target
+  const ZOOM_MIN  = 0;
+  const ZOOM_MAX  = 9;
+  const ZOOM_STEP = 1.2;
+  let   zoomDist  = 5;
   let zoomTarget  = 5;
 
   const WORLD    = 60;
@@ -32,7 +27,6 @@ window.World = (() => {
   const keys = {};
   let rmb = false;
 
-  // Frozen cursor position (set when RMB goes down)
   let frozenX = 0, frozenY = 0;
 
   let nearShack = null;
@@ -42,11 +36,9 @@ window.World = (() => {
   let playerGroup  = null;
   let viewModel    = null;
 
-  // Smooth body yaw (so character doesn't snap)
   let bodyYaw = 0;
   let _proxAccum = 0;
 
-  // ── SHACK DEFS ────────────────────────────────────────────
   const SHACK_DEFS = [
     { id:'sell',     name:'Sell Shop',        hexColor:0xffd700, x:-18, npc:'sell',
       npcQuote:'"I pay top coin for your finest crops!"',     shirtColor:0xf9a825 },
@@ -60,7 +52,6 @@ window.World = (() => {
       npcQuote:'"Feed your pet to the machine... stronger!"', shirtColor:0x4a148c },
   ];
 
-  // ── INIT ──────────────────────────────────────────────────
   function init() {
     const canvas = document.getElementById('gameCanvas');
 
@@ -72,15 +63,13 @@ window.World = (() => {
 
     renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference:'high-performance' });
     renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.0)); // cap at 1x on Chromebook
     renderer.shadowMap.enabled = false;
 
     clock = new THREE.Clock();
 
-    // Start render loop immediately so browser doesn't think page is frozen
     animate();
 
-    // Build scene in chunks across multiple frames to avoid blocking the main thread
     const steps = [
       ['buildTerrain',     buildTerrain],
       ['buildLighting',    buildLighting],
@@ -111,7 +100,6 @@ window.World = (() => {
     window.addEventListener('resize', onResize);
   }
 
-  // ── TERRAIN ───────────────────────────────────────────────
   function buildTerrain() {
     const gGeo = new THREE.PlaneGeometry(WORLD*2, WORLD*2, 40, 40);
     const gp   = gGeo.attributes.position;
@@ -159,7 +147,6 @@ window.World = (() => {
     return m;
   }
 
-  // ── LIGHTING ──────────────────────────────────────────────
   function buildLighting() {
     scene.add(new THREE.AmbientLight(0xfff0d0, 0.55));
     scene.add(new THREE.HemisphereLight(0x87ceeb, 0x556b2f, 0.38));
@@ -181,14 +168,12 @@ window.World = (() => {
     scene.add(fill);
   }
 
-  // ── HELPER: darken a hex colour ───────────────────────────
   function darken(hex, f) {
     return ( Math.round(((hex>>16)&0xff)*f)<<16 |
              Math.round(((hex>>8 )&0xff)*f)<<8  |
              Math.round(( hex     &0xff)*f) );
   }
 
-  // ── SHACKS ────────────────────────────────────────────────
   function buildShacks() {
     SHACK_DEFS.forEach(def => {
       const g  = new THREE.Group();
@@ -255,7 +240,6 @@ window.World = (() => {
     });
   }
 
-  // ── BOX HELPER ────────────────────────────────────────────
   function bx(parent, w,h,d, color, pos) {
     const m = new THREE.Mesh(
       new THREE.BoxGeometry(w,h,d),
@@ -266,9 +250,6 @@ window.World = (() => {
     return m;
   }
 
-  // ── CANVAS TEXT TEXTURE ───────────────────────────────────
-  // Uses a safe fallback font first, then updates texture once
-  // 'Press Start 2P' is confirmed loaded — avoids font-load freeze.
   function makeTextTexture(text) {
     const cv = document.createElement('canvas');
     cv.width = 512; cv.height = 128;
@@ -294,11 +275,9 @@ window.World = (() => {
       ctx.fillText(text, 256, 64);
     }
 
-    // Draw immediately with a safe system font (no freeze)
     draw('bold 28px monospace');
     const tex = new THREE.CanvasTexture(cv);
 
-    // Once the custom font loads, redraw and update texture (non-blocking)
     if (document.fonts && document.fonts.load) {
       document.fonts.load('bold 28px "Press Start 2P"').then(() => {
         draw('bold 28px "Press Start 2P", monospace');
@@ -309,7 +288,6 @@ window.World = (() => {
     return tex;
   }
 
-  // ── TREES ─────────────────────────────────────────────────
   const _MAT = {
     trunk:   new THREE.MeshLambertMaterial({ color: 0x5d3e28 }),
     leaf0:   new THREE.MeshLambertMaterial({ color: 0x2e7d32 }),
@@ -337,7 +315,6 @@ window.World = (() => {
     });
   }
 
-  // ── FLOWERS ───────────────────────────────────────────────
   function buildFlowers() {
     const flowerMats = [0xff4081,0xffeb3b,0xff9800,0xe040fb,0x69f0ae,0xff5722,0x00e5ff,0xf48fb1]
       .map(c => new THREE.MeshLambertMaterial({ color: c }));
@@ -364,7 +341,6 @@ window.World = (() => {
     }
   }
 
-  // ── CLOUDS ────────────────────────────────────────────────
   const clouds = [];
   function buildClouds() {
     for (let i=0;i<14;i++) {
@@ -385,7 +361,6 @@ window.World = (() => {
     }
   }
 
-  // ── PATH & FENCE ──────────────────────────────────────────
   function buildPathAndFence() {
     const fMat = new THREE.MeshLambertMaterial({ color: 0x6d4c41 });
     const pMat = new THREE.MeshLambertMaterial({ color: 0x5d3e28 });
@@ -409,7 +384,6 @@ window.World = (() => {
     }
   }
 
-  // ── PLAYER BODY ───────────────────────────────────────────
   function buildPlayerBody() {
     playerGroup = new THREE.Group();
 
@@ -421,22 +395,20 @@ window.World = (() => {
       return m;
     };
 
-    mkB(0.6, 0.75,0.35, 0x1565c0,  0,1.22,0);   // torso
-    mkB(0.52,0.52,0.52, 0xffcc9a,  0,1.82,0);   // head
-    mkB(0.54,0.18,0.54, 0x4e342e,  0,2.08,0);   // hair
-    mkB(0.08,0.08,0.06, 0x111111, -0.12,1.84,0.27); // L eye
-    mkB(0.08,0.08,0.06, 0x111111,  0.12,1.84,0.27); // R eye
-    mkB(0.22,0.70,0.22, 0x1565c0, -0.42,1.14,0);  // L arm
-    mkB(0.22,0.70,0.22, 0x1565c0,  0.42,1.14,0);  // R arm
-    mkB(0.24,0.72,0.26, 0x33691e, -0.17,0.5, 0);  // L leg
-    mkB(0.24,0.72,0.26, 0x33691e,  0.17,0.5, 0);  // R leg
-    mkB(0.26,0.18,0.38, 0x3e2723, -0.17,0.09,0.06); // L shoe
-    mkB(0.26,0.18,0.38, 0x3e2723,  0.17,0.09,0.06); // R shoe
+    mkB(0.6, 0.75,0.35, 0x1565c0,  0,1.22,0);
+    mkB(0.52,0.52,0.52, 0xffcc9a,  0,1.82,0);
+    mkB(0.54,0.18,0.54, 0x4e342e,  0,2.08,0);
+    mkB(0.08,0.08,0.06, 0x111111, -0.12,1.84,0.27);
+    mkB(0.08,0.08,0.06, 0x111111,  0.12,1.84,0.27);
+    mkB(0.22,0.70,0.22, 0x1565c0, -0.42,1.14,0);
+    mkB(0.22,0.70,0.22, 0x1565c0,  0.42,1.14,0);
+    mkB(0.24,0.72,0.26, 0x33691e, -0.17,0.5, 0);
+    mkB(0.24,0.72,0.26, 0x33691e,  0.17,0.5, 0);
+    mkB(0.26,0.18,0.38, 0x3e2723, -0.17,0.09,0.06);
+    mkB(0.26,0.18,0.38, 0x3e2723,  0.17,0.09,0.06);
 
-    // ── Held item slot on the player body (visible in 3rd person) ──
     const bodyItemSlot = new THREE.Group();
     bodyItemSlot.name = 'bodyItemSlot';
-    // Position in right hand area
     bodyItemSlot.position.set(0.52, 1.0, 0.22);
     playerGroup.add(bodyItemSlot);
 
@@ -444,7 +416,6 @@ window.World = (() => {
     scene.add(playerGroup);
   }
 
-  // ── VIEW MODEL (1st-person arm) ───────────────────────────
   function buildViewModel() {
     viewModel = new THREE.Group();
     const sk  = new THREE.MeshLambertMaterial({ color:0xffcc9a });
@@ -466,8 +437,6 @@ window.World = (() => {
     scene.add(camera);
   }
 
-  // ── BUILD HELD ITEM MESH ──────────────────────────────────
-  // Used for both viewmodel (1st person) and body slot (3rd person)
   function buildItemMesh(item) {
     if (!item) return null;
     const lm = col => new THREE.MeshLambertMaterial({ color:col });
@@ -501,13 +470,10 @@ window.World = (() => {
     return g;
   }
 
-  // ── UPDATE HELD ITEM ─────────────────────────────────────
-  // Cached slot refs + only rebuild when item actually changes
   let _vmSlot    = null;
   let _bodySlot  = null;
   let _lastHeldKey = null;
   function updateHeldItem() {
-    // Lazily cache the slot nodes (built after init)
     if (!_vmSlot)   _vmSlot   = camera.getObjectByName('vmItemSlot');
     if (!_bodySlot) _bodySlot = playerGroup?.getObjectByName('bodyItemSlot');
 
@@ -517,14 +483,12 @@ window.World = (() => {
     if (key === _lastHeldKey) return;
     _lastHeldKey = key;
 
-    // 1st-person viewmodel
     if (_vmSlot) {
       while (_vmSlot.children.length) _vmSlot.remove(_vmSlot.children[0]);
       const mesh = buildItemMesh(item);
       if (mesh) _vmSlot.add(mesh);
     }
 
-    // 3rd-person body slot
     if (_bodySlot) {
       while (_bodySlot.children.length) _bodySlot.remove(_bodySlot.children[0]);
       const mesh = buildItemMesh(item);
@@ -535,7 +499,6 @@ window.World = (() => {
     }
   }
 
-  // ── CONTROLS ──────────────────────────────────────────────
   function setupControls(canvas) {
     window.addEventListener('keydown', e => {
       keys[e.code] = true;
@@ -559,9 +522,6 @@ window.World = (() => {
 
     window.addEventListener('keyup', e => { keys[e.code]=false; });
 
-    // ── RMB: camera look — pure delta, NO pointer lock ────
-    // requestPointerLock() causes a multi-second browser freeze/prompt.
-    // Simple delta tracking: cursor stays visible, camera still turns.
     canvas.addEventListener('mousedown', e => {
       if (e.button === 2) {
         rmb     = true;
@@ -587,24 +547,24 @@ window.World = (() => {
 
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // ── SCROLL WHEEL: zoom in/out ──────────────────────────
     canvas.addEventListener('wheel', e => {
       if (window._anyModalOpen?.()) return;
       e.preventDefault();
-
-      // Scroll down = zoom out (increase distance), scroll up = zoom in
       zoomTarget += e.deltaY > 0 ? ZOOM_STEP : -ZOOM_STEP;
       zoomTarget  = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomTarget));
     }, { passive: false });
   }
 
   // ── ANIMATION LOOP ────────────────────────────────────────
+  // Capped at 30fps on Chromebook to prevent GPU freeze
+  const TARGET_MS = 1000 / 30; // 30fps target
   let _npcT = 0;
   let _lastFrame = 0;
-function animate(now = 0) {
-  requestAnimationFrame(animate);
-  if (now - _lastFrame < 16) return; // cap at ~60fps
-  _lastFrame = now;
+  function animate(now = 0) {
+    requestAnimationFrame(animate);
+    if (now - _lastFrame < TARGET_MS) return;
+    _lastFrame = now;
+
     const dt = Math.min(clock.getDelta(), 0.05);
 
     if (Player?.state?.username && !window._anyModalOpen?.()) {
@@ -612,20 +572,16 @@ function animate(now = 0) {
       updateHeldItem();
     }
 
-    // Smooth zoom lerp
     zoomDist += (zoomTarget - zoomDist) * Math.min(dt * 12, 1);
 
-    // Show/hide viewmodel based on zoom
     const isFirstPerson = zoomDist < 0.5;
     if (viewModel)   viewModel.visible   = isFirstPerson;
     if (playerGroup) playerGroup.visible = !isFirstPerson;
 
-    // Billboard shop names always face camera (cached refs)
     SHACK_DEFS.forEach(def => {
       if (def.billboardPlane) def.billboardPlane.lookAt(camera.position);
     });
 
-    // NPC bob (cached head refs)
     _npcT += dt;
     SHACK_DEFS.forEach((def,i) => {
       if (def.npcHead) {
@@ -633,7 +589,6 @@ function animate(now = 0) {
       }
     });
 
-    // Clouds
     clouds.forEach(c => {
       c.position.x += c.userData.speed*dt;
       if (c.position.x > WORLD) c.position.x = -WORLD;
@@ -644,8 +599,6 @@ function animate(now = 0) {
     renderer.render(scene, camera);
   }
 
-  // ── MOVEMENT ──────────────────────────────────────────────
-  // Pre-allocated vectors — avoids creating garbage every frame
   const _fwd  = new THREE.Vector3();
   const _rgt  = new THREE.Vector3();
   const _move = new THREE.Vector3();
@@ -669,7 +622,6 @@ function animate(now = 0) {
 
     playerPos.add(move);
 
-    // Gravity + jump
     velY += GRAVITY * dt;
     playerPos.y += velY * dt;
     if (playerPos.y <= 0) { playerPos.y = 0; velY = 0; grounded = true; }
@@ -678,16 +630,11 @@ function animate(now = 0) {
     playerPos.x = Math.max(-bound, Math.min(bound, playerPos.x));
     playerPos.z = Math.max(-bound, Math.min(bound, playerPos.z));
 
-    // Walking bob accumulator
     if (isMoving && grounded) _walkT += dt * 8;
 
-    // ── Body facing: smoothly rotate toward movement direction ──
     if (!isFirstPerson && isMoving) {
-      // Target yaw = direction of movement (based on camera yaw + input)
       const moveYaw = Math.atan2(move.x, move.z);
-      // Smooth rotation toward target
       let diff = moveYaw - bodyYaw;
-      // Wrap to [-PI, PI]
       while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       bodyYaw += diff * Math.min(dt * 14, 1);
@@ -698,22 +645,14 @@ function animate(now = 0) {
       playerGroup.rotation.y = isFirstPerson ? camYaw + Math.PI : bodyYaw;
     }
 
-    // ── CAMERA POSITIONING ────────────────────────────────
     if (isFirstPerson) {
-      // First person
       const bobY = (isMoving && grounded) ? Math.sin(_walkT) * 0.05 : 0;
       camera.position.set(playerPos.x, playerPos.y + EYE_H + bobY, playerPos.z);
       camera.rotation.order = 'YXZ';
       camera.rotation.y = camYaw;
       camera.rotation.x = camPitch;
     } else {
-      // ── Spherical 3rd-person camera ──────────────────────
-      // camYaw and camPitch give full spherical orbit around player
-      // Clamp pitch so camera doesn't go below ground or flip over top
       const pitch = Math.max(-Math.PI * 0.35, Math.min(Math.PI * 0.45, camPitch));
-
-      // Offset from player in spherical coords.
-      // Negate pitch so mouse-up raises camera (corrects 3rd-person inversion).
       const p      = -pitch;
       const offsetX =  Math.sin(camYaw) * Math.cos(p) * zoomDist;
       const offsetY =  Math.sin(p)                    * zoomDist + EYE_H;
@@ -726,7 +665,6 @@ function animate(now = 0) {
       camera.lookAt(_look);
     }
 
-    // Zone label
     const zEl = document.getElementById('zoneLabel');
     if (zEl) {
       if (playerPos.z > 5)       zEl.textContent = 'GARDEN';
@@ -734,7 +672,6 @@ function animate(now = 0) {
       else                        zEl.textContent = 'MARKET';
     }
 
-    // Proximity checks throttled to 10Hz - no need to run every frame
     _proxAccum += dt;
     if (_proxAccum >= 0.1) {
       _proxAccum = 0;
@@ -743,7 +680,6 @@ function animate(now = 0) {
     }
   }
 
-  // ── SHACK PROXIMITY ───────────────────────────────────────
   function checkShackProximity() {
     nearShack = null;
     const ip = document.getElementById('interactPrompt');
@@ -766,7 +702,6 @@ function animate(now = 0) {
     renderer.setSize(innerWidth, innerHeight);
   }
 
-  // Kept for any external callers but no longer needed internally
   function togglePerspective() {
     if (zoomDist < 0.5) {
       zoomTarget = 5;
