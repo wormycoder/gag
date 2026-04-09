@@ -1,15 +1,11 @@
 // firebase-init.js  –  Grow-a-Garden
 // Firebase REST API wrapper — no WebSockets, no SDK, pure fetch() over HTTPS.
-// Routes all Firebase calls through a Cloudflare Worker proxy to bypass
-// Neocities' Content Security Policy restrictions.
 
 const DB_URL  = 'https://snaptube-c38b2-default-rtdb.firebaseio.com';
 const API_KEY = 'AIzaSyDL4KerKsx1UZfA--gV2YLY92ptVyFg25I';
-const PROXY   = 'https://restless-leaf-ef07.elithiessen5.workers.dev';
 
 // ── AUTH TOKEN ────────────────────────────────────────────────────────────────
-// Anonymous auth is disabled in this Firebase project, so we skip it entirely
-// and rely on open database rules for read/write access.
+// Anonymous auth is disabled, so we skip it and use open database rules.
 async function getAuthToken() {
   return null;
 }
@@ -17,13 +13,12 @@ async function getAuthToken() {
 // ── REST HELPERS ──────────────────────────────────────────────────────────────
 function pathToUrl(path) {
   const clean = path.replace(/^\/+|\/+$/g, '');
-  const target = `${DB_URL}/${clean}.json`;
-  return `${PROXY}?url=${encodeURIComponent(target)}`;
+  return `${DB_URL}/${clean}.json`;
 }
 
 async function restGet(path) {
   const url = pathToUrl(path);
-  const r = await fetch(url);
+  const r   = await fetch(url);
   if (!r.ok) throw new Error(`DB get failed: ${r.status}`);
   const val = await r.json();
   return makeSnap(val, path);
@@ -31,7 +26,7 @@ async function restGet(path) {
 
 async function restSet(path, value) {
   const url = pathToUrl(path);
-  const r = await fetch(url, {
+  const r   = await fetch(url, {
     method:  'PUT',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(value)
@@ -42,7 +37,7 @@ async function restSet(path, value) {
 
 async function restUpdate(path, value) {
   const url = pathToUrl(path);
-  const r = await fetch(url, {
+  const r   = await fetch(url, {
     method:  'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(value)
@@ -53,7 +48,7 @@ async function restUpdate(path, value) {
 
 async function restPush(path, value) {
   const url = pathToUrl(path);
-  const r = await fetch(url, {
+  const r   = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(value)
@@ -65,17 +60,17 @@ async function restPush(path, value) {
 
 async function restRemove(path) {
   const url = pathToUrl(path);
-  const r = await fetch(url, { method: 'DELETE' });
+  const r   = await fetch(url, { method: 'DELETE' });
   if (!r.ok) throw new Error(`DB remove failed: ${r.status}`);
 }
 
 // ── SNAPSHOT EMULATION ────────────────────────────────────────────────────────
 function makeSnap(val, path) {
   return {
-    exists:   () => val !== null && val !== undefined,
-    val:      () => val,
-    key:      path.split('/').pop(),
-    forEach:  (cb) => {
+    exists:  () => val !== null && val !== undefined,
+    val:     () => val,
+    key:     path.split('/').pop(),
+    forEach: (cb) => {
       if (val && typeof val === 'object' && !Array.isArray(val)) {
         for (const [k, v] of Object.entries(val)) {
           const child = makeSnap(v, path + '/' + k);
@@ -143,6 +138,6 @@ window.DB = {
 window.GAG_ROOT = 'gag';
 window.gRef = (path) => makeRef('gag/' + path);
 
-console.log('[DB] REST API mode via Cloudflare Worker proxy — CSP-safe');
+console.log('[DB] REST API mode — direct Firebase, no proxy');
 
 export { };
