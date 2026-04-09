@@ -600,8 +600,11 @@ window.World = (() => {
 
   // ── ANIMATION LOOP ────────────────────────────────────────
   let _npcT = 0;
-  function animate() {
-    requestAnimationFrame(animate);
+  let _lastFrame = 0;
+function animate(now = 0) {
+  requestAnimationFrame(animate);
+  if (now - _lastFrame < 16) return; // cap at ~60fps
+  _lastFrame = now;
     const dt = Math.min(clock.getDelta(), 0.05);
 
     if (Player?.state?.username && !window._anyModalOpen?.()) {
