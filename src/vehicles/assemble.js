@@ -36,7 +36,7 @@ export function assemble(spec) {
         f: ax.f, track: ax.track, spring: s.spring, bump: s.bump, rebound: s.rebound,
         frameY: s.frameY, springIn: s.springIn, travel: s.travel, arms: s.arms,
         steer: !!ax.steered, rackEnd: s.rackEnd, tieSide: s.tieSide, tieOff: s.tieOff,
-        diffMass: s.axleMass, casterOffset: s.casterOffset,
+        diffMass: s.axleMass, casterOffset: s.casterOffset, armDir: s.armDir,
       });
       corners[key] = { solid: r, wl, wr };
     } else {

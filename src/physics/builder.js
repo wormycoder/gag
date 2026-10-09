@@ -357,8 +357,8 @@ export class Builder {
     const caster = c.casterOffset ?? 0.035;
     const kup = this.node(`${w.name}_kup`, sg * (x0 - (c.kupIn ?? 0.0)), R + (c.kupUp ?? 0.20), f - caster, 5.0, { flags: 0 });
     const klo = this.node(`${w.name}_klo`, sg * (x0 - (c.kloIn ?? 0.02)), R - (c.kloDown ?? 0.15), f, 6.0, { flags: 0 });
-    const tieF = f + (c.tieSide ?? -1) * (c.tieOff ?? 0.15);
-    const tie = this.node(`${w.name}_tie`, sg * (x0 - (c.tieIn ?? 0.13)), R + 0.05, tieF, 4.0, { flags: 0 });
+    const tieF = f + (c.tieSide ?? -1) * (c.tieOff ?? 0.20);
+    const tie = this.node(`${w.name}_tie`, sg * (x0 - (c.tieIn ?? 0.08)), R + 0.05, tieF, 4.0, { flags: 0 });
     this._knuckle(w, kup, klo, tie, c);
     // chassis pickups
     const a = c.arms || {};
@@ -391,7 +391,7 @@ export class Builder {
       const ry = pt[1] + (axisPt[1] - pl[1]);
       const rackName = c.steer ? `${w.name}_rack` : `${w.name}_toe`;
       const rack = this.mount(rackName, rx, ry, tieF, 5, 6);
-      const bi = this.beam(rack, tie, { k: 1.4e6, zeta: 0.15, def: c.steer ? 1e9 : 1.2e5, brk: c.steer ? 6e5 : 4e5 });
+      const bi = this.beam(rack, tie, { k: 1.4e6, zeta: c.steer ? 0.4 : 0.15, def: c.steer ? 1e9 : 1.2e5, brk: c.steer ? 6e5 : 4e5 });
       if (c.steer) {
         const table = this._steerTable(rack, tie, kup, klo);
         this.steerTables.push(table);
@@ -452,11 +452,11 @@ export class Builder {
     for (let i = 0; i < body.length; i++) for (let j = i + 1; j < body.length; j++) this.beam(body[i], body[j], axBeam);
     const hubs = [[wL, L, -1], [wR, Rr, 1]];
     for (const [w, k, sg] of hubs) {
-      const tieF = f + (a.tieSide ?? 1) * (a.tieOff ?? 0.13);
-      const tie = this.node(`${w.name}_tie`, sg * (x0 - 0.2), R + 0.05, tieF, 3, { flags: 0 });
+      const tieF = f + (a.tieSide ?? 1) * (a.tieOff ?? 0.25);
+      const tie = this.node(`${w.name}_tie`, sg * (x0 - (a.tieIn ?? 0.04)), R + 0.05, tieF, 4, { flags: 0 });
       if (steer) {
-        const kup = this.node(`${w.name}_kup`, sg * (x0 - 0.12), R + 0.19, f - caster, 4, { flags: 0 });
-        const klo = this.node(`${w.name}_klo`, sg * (x0 - 0.12), R - 0.17, f, 5, { flags: 0 });
+        const kup = this.node(`${w.name}_kup`, sg * x0, R + 0.19, f - caster, 5, { flags: 0 });
+        const klo = this.node(`${w.name}_klo`, sg * x0, R - 0.17, f, 6, { flags: 0 });
         this._knuckle(w, kup, klo, tie, { kKnuckle: 2e6 });
         const j = { k: 2e6, zeta: 0.1, def: 5e5, brk: 1.2e6 };
         // lower ball joint: three anchors, upper: pin line (two anchors)
@@ -488,18 +488,20 @@ export class Builder {
       const len = ar.length ?? 0.9;
       const lowA = this.mount(`${w.name}_ra_l`, xa, ar.lowerY ?? (R - 0.05), f - len * (a.armDir ?? 1), 8, 8);
       const upA = this.mount(`${w.name}_ra_u`, xa, ar.upperY ?? (R + 0.18), f - len * 0.9 * (a.armDir ?? 1), 8, 8);
-      const o = { k: 9e5, zeta: 0.1, def: 140000, brk: 320000 };
+      const o = { k: 2.5e6, zeta: 0.1, def: 160000, brk: 360000 };
       this.beam(lowA, k.alo, o); this.beam(upA, k.aup, o);
+      this.beam(lowA, k.aup, { ...o, k: 1.5e6 }); this.beam(upA, k.alo, { ...o, k: 1.5e6 });
     }
     // Panhard rod
     const pL = this.mount(`${wL.name}_pan`, -(x0 - 0.2), R + 0.1, f + 0.02, 8, 8);
-    this.beam(pL, Rr.alo, { k: 9e5, zeta: 0.12, def: 120000, brk: 300000 });
+    this.beam(pL, Rr.alo, { k: 3e6, zeta: 0.15, def: 160000, brk: 360000 });
+    this.beam(pL, Rr.aup, { k: 3e6, zeta: 0.15, def: 160000, brk: 360000 });
     // steering
     if (steer) {
       for (const [w, k, sg] of hubs) {
         const rk = a.rackEnd;
         const rack = this.mount(`${w.name}_rack`, sg * rk.x, rk.y ?? R + 0.05, rk.f ?? f - 0.2, 6, 8);
-        const bi = this.beam(rack, w.tie, { k: 1.6e6, zeta: 0.15, def: 1e9, brk: 6e5 });
+        const bi = this.beam(rack, w.tie, { k: 1.6e6, zeta: 0.4, def: 1e9, brk: 6e5 });
         const table = this._steerTable(rack, w.tie, w.kup, w.klo);
         this.steerTables.push(table);
         this.steerBeams.push({ beam: bi, side: sg, table: this.steerTables.length - 1 });
