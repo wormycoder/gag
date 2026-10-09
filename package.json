@@ -1,0 +1,11 @@
+{
+  "name": "gag-softbody-driving",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Soft-body vehicle physics sandbox in the browser (node/beam engine, three.js renderer)",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run.js"
+  }
+}
