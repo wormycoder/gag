@@ -139,6 +139,7 @@ export class Vehicle {
     this._prevVel = null;
     this.setDt(1 / 2000);
     this.updateFrame();
+    this.comRest = this.frame.com.slice();
   }
 
   setDt(dt) {
@@ -198,6 +199,47 @@ export class Vehicle {
     // lift so lowest point is `lift` above ground
     const dy = -minY + lift;
     for (let i = 0; i < this.nc; i++) this.pos[3 * i + 1] += dy;
+    this.updateFrame();
+  }
+
+  /** Put the (possibly damaged) vehicle upright again, keeping its heading and shape. */
+  recover(world, lift = 0.6) {
+    this.updateFrame();
+    const fr = this.frame;
+    // target basis: forward projected onto the ground plane, up = +Y
+    let fx = fr.f[0], fz = fr.f[2];
+    const l = Math.hypot(fx, fz);
+    if (l < 0.2) { fx = fr.u[0]; fz = fr.u[2]; }
+    const il = 1 / (Math.hypot(fx, fz) || 1); fx *= il; fz *= il;
+    const tf = [fx, 0, fz], tu = [0, 1, 0];
+    // right = up x (-forward): f=(0,0,-1), u=(0,1,0) -> (1,0,0)
+    const nf = [-tf[0], -tf[1], -tf[2]];
+    const R = [tu[1] * nf[2] - tu[2] * nf[1], tu[2] * nf[0] - tu[0] * nf[2], tu[0] * nf[1] - tu[1] * nf[0]];
+    const B0 = [fr.r, fr.u, fr.f];     // current basis rows
+    const B1 = [R, tu, tf];             // target basis rows
+    // rotation M = sum_k B1[k] (x) B0[k]
+    const M = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    for (let k = 0; k < 3; k++) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) M[3 * i + j] += B1[k][i] * B0[k][j];
+    const c = fr.com;
+    let minY = Infinity;
+    for (let i = 0; i < this.nc; i++) {
+      const o = 3 * i;
+      const dx = this.pos[o] - c[0], dy = this.pos[o + 1] - c[1], dz = this.pos[o + 2] - c[2];
+      this.pos[o] = c[0] + M[0] * dx + M[1] * dy + M[2] * dz;
+      this.pos[o + 1] = c[1] + M[3] * dx + M[4] * dy + M[5] * dz;
+      this.pos[o + 2] = c[2] + M[6] * dx + M[7] * dy + M[8] * dz;
+      this.vel[o] = this.vel[o + 1] = this.vel[o + 2] = 0;
+    }
+    for (let i = 0; i < this.nc; i++) {
+      const o = 3 * i;
+      const gh = world ? world.heightAt(this.pos[o], this.pos[o + 2]) : 0;
+      minY = Math.min(minY, this.pos[o + 1] - gh);
+    }
+    const dy = lift - minY;
+    for (let i = 0; i < this.nc; i++) this.pos[3 * i + 1] += dy;
+    for (const w of this.wheels) w.omega = 0;
+    this.drive.omegaE = Math.max(this.drive.omegaE * 0.5, 0);
+    this.wake();
     this.updateFrame();
   }
 

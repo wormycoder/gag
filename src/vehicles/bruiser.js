@@ -85,7 +85,15 @@ export const bruiserSpec = {
     },
   },
   info: { title: 'Bruiser 4x4', cls: 'Crew-cab pickup', power: '420 hp', drive: '4WD', engine: '5.7L V8', weight: 2380 },
-  visual: { paint: 0x3f5b3a, kind: 'pickup' },
+  visual: {
+    paint: 0x3f5b3a, kind: 'pickup',
+    bed: [-2.95, -0.8],
+    glass: { wind: [0.5, 1.15], rear: [-0.78, -0.7], side: [[-0.05, 0.92], [-0.62, -0.12]] },
+    doors: [[-0.1, 0.96], [-0.68, -0.14]],
+    panels: [[1.25, 2.85], [-2.95, -2.9]],
+    wheel: { style: 'truck', rimRadius: 0.216, color: 0x2b2d31, caliper: 0x444 },
+    camera: { dist: 8.4, height: 3.0, eye: [-0.42, 1.95, 0.05], hood: [0, 1.75, 1.2] },
+  },
 };
 
 export function buildBruiser() { return assemble(bruiserSpec); }

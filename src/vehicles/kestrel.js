@@ -73,7 +73,14 @@ export const kestrelSpec = {
     diffs: { front: { type: 'lsd', preload: 25, power: 0.12, coast: 0.05 }, rear: null, center: { split: 1 } },
   },
   info: { title: 'Kestrel S', cls: 'Compact sedan', power: '152 hp', drive: 'FWD', engine: '2.0L I4', weight: 1260 },
-  visual: { paint: 0x2c5fa8, kind: 'sedan' },
+  visual: {
+    paint: 0x2c5fa8, kind: 'sedan',
+    glass: { wind: [0.45, 1.07], rear: [-1.5, -0.8], side: [[-0.15, 0.9], [-1.0, -0.3]] },
+    doors: [[-0.22, 0.98], [-1.12, -0.28]],
+    panels: [[1.12, 2.12], [-2.05, -1.55]],
+    wheel: { style: 'sedan', rimRadius: 0.203, color: 0xc4c8cf, caliper: 0xb02a2a },
+    camera: { dist: 6.6, height: 2.2, eye: [-0.38, 1.22, 0.05], hood: [0, 1.3, 1.25] },
+  },
 };
 
 export function buildKestrel() { return assemble(kestrelSpec); }

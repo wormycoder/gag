@@ -75,7 +75,15 @@ export const vulcanSpec = {
     diffs: { front: null, rear: { type: 'lsd', preload: 90, power: 0.4, coast: 0.2 }, center: { split: 0 } },
   },
   info: { title: 'Vulcan GT', cls: 'Grand tourer', power: '460 hp', drive: 'RWD', engine: '5.0L V8', weight: 1560 },
-  visual: { paint: 0xc2231c, kind: 'coupe' },
+  visual: {
+    paint: 0xc2231c, kind: 'coupe',
+    glass: { wind: [0.4, 1.05], rear: [-1.62, -0.78], side: [[-0.62, 0.95]] },
+    doors: [[-0.7, 1.0]],
+    panels: [[1.15, 2.3], [-2.2, -1.65]],
+    archExtra: 0.01,
+    wheel: { style: 'sport', rimRadius: 0.2286, color: 0x2e3136, caliper: 0xf2c200 },
+    camera: { dist: 6.3, height: 1.9, eye: [-0.4, 1.1, -0.05], hood: [0, 1.12, 1.4] },
+  },
 };
 
 export function buildVulcan() { return assemble(vulcanSpec); }

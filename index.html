@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Softbody — Vehicle Physics Sandbox</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="loading">
+  <div class="load-box">
+    <div class="logo">SOFTBODY</div>
+    <div class="sub">node / beam vehicle simulation</div>
+    <div class="bar"><div id="load-bar"></div></div>
+    <div id="load-text">Starting…</div>
+  </div>
+</div>
+
+<div id="hud" class="hidden">
+  <div id="vehicle-name"></div>
+  <div id="gauges">
+    <canvas id="tacho" width="300" height="300"></canvas>
+    <div id="speed-box"><span id="speed">0</span><small id="speed-unit">km/h</small></div>
+    <div id="gear">N</div>
+  </div>
+  <div id="status">
+    <div class="pill" id="abs-pill">ABS</div>
+    <div class="pill" id="tcs-pill">TCS</div>
+    <div class="pill" id="lights-pill">LIGHTS</div>
+    <div class="pill" id="hb-pill">PARK</div>
+    <div class="pill" id="low-pill">4LO</div>
+  </div>
+  <div id="damage"><div class="dlabel">DAMAGE</div><div class="dbar"><div id="dbar-fill"></div></div></div>
+  <div id="toast"></div>
+  <div id="debugtxt"></div>
+</div>
+
+<div id="panel" class="hidden">
+  <div class="ptitle">Vehicles</div>
+  <div id="vlist"></div>
+  <div class="ptitle small">Spawn</div>
+  <div id="spawn-btns"></div>
+  <div class="phint">Tab: next vehicle · Del: remove</div>
+</div>
+
+<div id="help" class="hidden">
+  <h2>Controls</h2>
+  <div class="cols">
+    <div><b>W / ↑</b> throttle<br><b>S / ↓</b> brake / reverse<br><b>A D / ← →</b> steer<br><b>Space</b> handbrake<br><b>E / Q</b> shift up / down (manual)<br><b>M</b> auto / manual gearbox<br><b>L</b> lights<br><b>B</b> toggle ABS · <b>Y</b> TCS<br><b>G</b> 4WD low range</div>
+    <div><b>C</b> camera · <b>mouse</b> look/zoom<br><b>R</b> recover upright<br><b>Backspace</b> repair &amp; reset<br><b>Home</b> back to spawn<br><b>Tab</b> next vehicle<br><b>T</b> slow motion · <b>P</b> pause<br><b>N</b> node/beam view<br><b>U</b> mph / km/h<br><b>H</b> this help · <b>F</b> stats</div>
+  </div>
+  <div class="phint">Gamepad: left stick steer, RT/LT throttle/brake, A handbrake, RB/LB shift, Y camera, X recover.</div>
+</div>
+<div id="hint">H — controls</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
